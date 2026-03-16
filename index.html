@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StartupLens — AI Startup Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c26;
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.14);
+      --accent: #7c6aff;
+      --accent2: #ff6a6a;
+      --accent3: #6affb8;
+      --text: #f0eeff;
+      --text-muted: rgba(240,238,255,0.5);
+      --text-dim: rgba(240,238,255,0.25);
+      --card-radius: 16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* Ambient glow background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(124,106,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #a855f7);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; }
+
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(32px, 6vw, 52px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f0eeff 0%, rgba(240,238,255,0.6) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* Input area */
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 28px;
+      margin-bottom: 28px;
+      transition: border-color 0.2s;
+    }
+
+    .input-card:focus-within {
+      border-color: var(--border-hover);
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .url-input::placeholder { color: var(--text-dim); }
+    .url-input:focus { border-color: var(--accent); }
+
+    .analyze-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 24px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .analyze-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .analyze-btn:active:not(:disabled) { transform: scale(0.98); }
+    .analyze-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .hint {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 10px;
+    }
+
+    /* Loading */
+    .loading-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 48px 28px;
+      text-align: center;
+      display: none;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .loading-sub { color: var(--text-muted); font-size: 13px; }
+
+    /* Error */
+    .error-box {
+      background: rgba(255,106,106,0.08);
+      border: 1px solid rgba(255,106,106,0.25);
+      border-radius: var(--card-radius);
+      padding: 20px 24px;
+      color: #ff9999;
+      font-size: 14px;
+      display: none;
+    }
+
+    /* Results */
+    #results { display: none; }
+
+    .results-header {
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .results-url {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .results-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    /* Section cards */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 28px;
+      margin-bottom: 16px;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section:nth-child(2) { animation-delay: 0.05s; }
+    .section:nth-child(3) { animation-delay: 0.1s; }
+    .section:nth-child(4) { animation-delay: 0.15s; }
+
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+    }
+
+    .tag-investor { background: rgba(124,106,255,0.15); color: #a99dff; }
+    .tag-competitor { background: rgba(255,106,106,0.12); color: #ff9e9e; }
+    .tag-skills { background: rgba(106,255,184,0.1); color: #6affb8; }
+    .tag-team { background: rgba(255,196,106,0.1); color: #ffc46a; }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 16px;
+    }
+
+    .section-body {
+      color: rgba(240,238,255,0.82);
+      font-size: 14.5px;
+      line-height: 1.75;
+    }
+
+    .section-body p { margin-bottom: 10px; }
+    .section-body p:last-child { margin-bottom: 0; }
+
+    .section-body ul {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .section-body ul li {
+      padding: 8px 0 8px 16px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .section-body ul li:last-child { border-bottom: none; }
+
+    .section-body ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .section-body strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* Competitor cards */
+    .competitor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .competitor-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .competitor-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #ff9e9e;
+    }
+
+    .competitor-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    /* Analyze again */
+    .again-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+
+    .again-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 14px;
+      background: var(--accent);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 0.9s step-end infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    @media (max-width: 520px) {
+      .url-row { flex-direction: column; }
+      .analyze-btn { width: 100%; justify-content: center; }
+      .competitor-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L12.5 7.5H18L13.5 11L15.5 17L10 13.5L4.5 17L6.5 11L2 7.5H7.5L10 2Z" fill="white" fill-opacity="0.9"/>
+        </svg>
+      </div>
+      <span class="logo-text">StartupLens</span>
+    </div>
+    <h1>Your startup,<br/>decoded.</h1>
+    <p class="subtitle">Drop your website URL. We'll research your startup and tell you exactly what you need to grow.</p>
+  </header>
+
+  <div class="input-card" id="input-area">
+    <div class="input-label">Your startup website</div>
+    <div class="url-row">
+      <input
+        type="url"
+        class="url-input"
+        id="url-input"
+        placeholder="https://yourstartup.com"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="analyze-btn" id="analyze-btn" onclick="analyze()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1L13 7L7 13M13 7H1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Analyze
+      </button>
+    </div>
+    <p class="hint">We'll read your site, research your market, and generate a full startup intelligence report.</p>
+  </div>
+
+  <div class="loading-box" id="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Reading your website...</div>
+    <div class="loading-sub" id="loading-sub">This takes about 20–30 seconds</div>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div id="results">
+    <div class="results-header">
+      <div class="results-url" id="results-url"></div>
+      <div class="results-title">Startup Intelligence Report</div>
+    </div>
+
+    <!-- Investor Section -->
+    <div class="section" id="section-investor" style="display:none">
+      <div class="section-tag tag-investor">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="4.5"/></svg>
+        Investor Match
+      </div>
+      <div class="section-title">What type of investor do you need right now?</div>
+      <div class="section-body" id="body-investor"></div>
+    </div>
+
+    <!-- Competitors Section -->
+    <div class="section" id="section-competitor" style="display:none">
+      <div class="section-tag tag-competitor">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="4.5"/></svg>
+        Competitive Landscape
+      </div>
+      <div class="section-title">Your 3 biggest regional competitors</div>
+      <div class="section-body" id="body-competitor"></div>
+    </div>
+
+    <!-- Skills Section -->
+    <div class="section" id="section-skills" style="display:none">
+      <div class="section-tag tag-skills">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="4.5"/></svg>
+        Expertise Gap
+      </div>
+      <div class="section-title">Skills you need to scale past your competitors</div>
+      <div class="section-body" id="body-skills"></div>
+    </div>
+
+    <!-- Team Section -->
+    <div class="section" id="section-team" style="display:none">
+      <div class="section-tag tag-team">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="4.5"/></svg>
+        Team Blueprint
+      </div>
+      <div class="section-title">The team you need to build</div>
+      <div class="section-body" id="body-team"></div>
+    </div>
+
+    <button class="again-btn" onclick="reset()">← Analyze another startup</button>
+  </div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `You are a world-class startup advisor and venture analyst. You will be given the content of a startup's website. Your job is to deeply analyze the startup and produce a structured report.
+
+Respond ONLY with a valid JSON object. No markdown, no extra text. Use this exact structure:
+
+{
+  "startup_name": "...",
+  "one_liner": "...",
+  "investor": {
+    "type": "...",
+    "stage": "...",
+    "rationale": "...",
+    "specific_firms": ["...", "...", "..."]
+  },
+  "competitors": [
+    {
+      "name": "...",
+      "description": "...",
+      "why_threat": "..."
+    },
+    {
+      "name": "...",
+      "description": "...",
+      "why_threat": "..."
+    },
+    {
+      "name": "...",
+      "description": "...",
+      "why_threat": "..."
+    }
+  ],
+  "skills_needed": [
+    { "skill": "...", "why": "..." },
+    { "skill": "...", "why": "..." },
+    { "skill": "...", "why": "..." },
+    { "skill": "...", "why": "..." }
+  ],
+  "team_blueprint": [
+    { "role": "...", "priority": "Immediate", "reason": "..." },
+    { "role": "...", "priority": "3-6 months", "reason": "..." },
+    { "role": "...", "priority": "6-12 months", "reason": "..." },
+    { "role": "...", "priority": "6-12 months", "reason": "..." }
+  ]
+}
+
+Be very specific. Name actual competitor companies. Name actual investor firms. Give actionable, no-fluff advice. Base everything on what you can infer from the website content.`;
+
+async function fetchSiteContent(url) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      messages: [
+        {
+          role: "user",
+          content: `Search for and read the startup website at: ${url}
+          
+Also search for: "${url} startup about funding competitors"
+
+Return a comprehensive summary of:
+1. What this startup does (product, problem solved, target customers)
+2. Their business model
+3. Their target market and geography
+4. Any funding information visible
+5. Team information
+6. Any traction or metrics mentioned
+7. Their stage (early, growth, etc.)
+
+Be thorough — this will be used for investor and competitive analysis.`
+        }
+      ]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const textBlocks = data.content.filter(b => b.type === "text");
+  return textBlocks.map(b => b.text).join("\n");
+}
+
+async function analyzeStartup(siteContent, url) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Here is the research I gathered about the startup at ${url}:\n\n${siteContent}\n\nNow produce the full JSON report.`
+        }
+      ]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const text = data.content.filter(b => b.type === "text").map(b => b.text).join("");
+  const clean = text.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean);
+}
+
+function setLoading(text, sub) {
+  document.getElementById("loading-text").textContent = text;
+  document.getElementById("loading-sub").textContent = sub || "";
+}
+
+function showError(msg) {
+  const el = document.getElementById("error-box");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function renderResults(data) {
+  document.getElementById("results").style.display = "block";
+
+  // Investor
+  const inv = data.investor;
+  const sec1 = document.getElementById("section-investor");
+  sec1.style.display = "block";
+  document.getElementById("body-investor").innerHTML = `
+    <p><strong>Type:</strong> ${inv.type} — <strong>Stage:</strong> ${inv.stage}</p>
+    <p>${inv.rationale}</p>
+    <p><strong>Firms to target:</strong></p>
+    <ul>${inv.specific_firms.map(f => `<li>${f}</li>`).join("")}</ul>
+  `;
+
+  // Competitors
+  const sec2 = document.getElementById("section-competitor");
+  sec2.style.display = "block";
+  document.getElementById("body-competitor").innerHTML = `
+    <div class="competitor-grid">
+      ${data.competitors.map(c => `
+        <div class="competitor-card">
+          <div class="competitor-name">${c.name}</div>
+          <div class="competitor-desc">${c.description}<br/><br/><span style="color:rgba(255,158,158,0.6);font-size:12px;">Why a threat: ${c.why_threat}</span></div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // Skills
+  const sec3 = document.getElementById("section-skills");
+  sec3.style.display = "block";
+  document.getElementById("body-skills").innerHTML = `
+    <ul>
+      ${data.skills_needed.map(s => `<li><strong>${s.skill}</strong> — ${s.why}</li>`).join("")}
+    </ul>
+  `;
+
+  // Team
+  const sec4 = document.getElementById("section-team");
+  sec4.style.display = "block";
+  document.getElementById("body-team").innerHTML = `
+    <ul>
+      ${data.team_blueprint.map(t => `
+        <li>
+          <strong>${t.role}</strong>
+          <span style="font-size:11px;margin-left:8px;padding:2px 8px;border-radius:4px;background:rgba(255,196,106,0.1);color:#ffc46a;">${t.priority}</span>
+          <br/><span style="color:var(--text-muted)">${t.reason}</span>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+async function analyze() {
+  const url = document.getElementById("url-input").value.trim();
+  if (!url) return;
+
+  // Validate URL
+  try { new URL(url); } catch {
+    showError("Please enter a valid URL, e.g. https://yourstartup.com");
+    return;
+  }
+
+  // UI state
+  document.getElementById("error-box").style.display = "none";
+  document.getElementById("results").style.display = "none";
+  document.getElementById("section-investor").style.display = "none";
+  document.getElementById("section-competitor").style.display = "none";
+  document.getElementById("section-skills").style.display = "none";
+  document.getElementById("section-team").style.display = "none";
+  document.getElementById("analyze-btn").disabled = true;
+  document.getElementById("loading-box").style.display = "block";
+  document.getElementById("results-url").textContent = url;
+
+  try {
+    setLoading("Reading your website...", "Fetching content and searching the web");
+    const siteContent = await fetchSiteContent(url);
+
+    setLoading("Analyzing your startup...", "Researching competitors, investors, and team needs");
+    const report = await analyzeStartup(siteContent, url);
+
+    document.getElementById("loading-box").style.display = "none";
+    renderResults(report);
+
+  } catch (err) {
+    document.getElementById("loading-box").style.display = "none";
+    showError("Something went wrong: " + (err.message || "Unknown error. Please try again."));
+  } finally {
+    document.getElementById("analyze-btn").disabled = false;
+  }
+}
+
+function reset() {
+  document.getElementById("results").style.display = "none";
+  document.getElementById("error-box").style.display = "none";
+  document.getElementById("url-input").value = "";
+  document.getElementById("url-input").focus();
+}
+
+document.getElementById("url-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") analyze();
+});
+</script>
+</body>
+</html>
